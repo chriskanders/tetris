@@ -59,10 +59,13 @@ const float grid_right = float((SCREEN_WIDTH/2)+(grid_width/2));
 const glm::mat4 projection = glm::ortho(0.0f, 1280.0f,
 				        720.0f, 0.0f);
 
-enum block_type {na, i, o, t, z, s, j, l};
+enum block_type {NA, I, O, T, Z, S, J, L};
 
-enum color_type {BLACK, BACKGROUND, GRAY, FOREGROUND, WHITE, 
-		 RED, ORANGE, GOLD, BLUE, BLUE_GREEN, PURPLE, LIGHT_GREEN};
+enum block_color {RED, RED_ORANGE, GOLD,
+		  PURPLE, BLUE, BLUE_GREEN,
+		  LIGHT_GREEN};
+
+enum other_color {BLACK, BACKGROUND, GRAY, FOREGROUND, WHITE};
 
 typedef struct {
     float r;
@@ -89,8 +92,10 @@ const GLchar *frag = GLSL(
 );
 
 // function declarations
+internal col type_to_color(block_type);
+internal col get_block_color(block_color);
+internal col get_other_color(other_color);
 internal void gen_rand_grid();
-internal void gen_rand_colors();
 internal void init_game_globals();
 internal void handle_events();
 internal void update_grid();
@@ -105,7 +110,7 @@ glob_var bool running;
 glob_var GLFWwindow *window;
 glob_var int key_status[349];
 glob_var block_type active_block;
-glob_var int grid[190];
-glob_var col colors[190];
+glob_var block_type grid[190];
+glob_var col col_val;
 
 #endif

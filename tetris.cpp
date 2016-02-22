@@ -6,27 +6,28 @@ int main()
     init_game_globals();
     init_glfw_opengl();
 
-    GLuint vertex_array_object;
-    glGenVertexArrays(1, &vertex_array_object);
-    glBindVertexArray(vertex_array_object);
-    GLuint vertex_buffer_object;
-    glGenBuffers(1, &vertex_buffer_object);
     float block_verts[] = {
 	0.0f, 0.0f, // top left
 	1.0f, 0.0f, // top right
 	1.0f, 1.0f, // bottom right
 	0.0f, 1.0f  // bottom left
     };
+    GLuint elements[] = {
+    	0, 1, 2,
+    	2, 3, 0
+    };
+
+    GLuint vertex_array_object;
+    glGenVertexArrays(1, &vertex_array_object);
+    glBindVertexArray(vertex_array_object);
+    GLuint vertex_buffer_object;
+    glGenBuffers(1, &vertex_buffer_object);
     glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_object);
     glBufferData(GL_ARRAY_BUFFER,
 		 sizeof(block_verts), block_verts, GL_STATIC_DRAW);
 
     GLuint element_buffer_object;
     glGenBuffers(1, &element_buffer_object);
-    GLuint elements[] = {
-    	0, 1, 2,
-    	2, 3, 0
-    };
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, element_buffer_object);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(elements), elements, GL_STATIC_DRAW);
      
@@ -54,33 +55,11 @@ int main()
     srand((uint)time(NULL));
 
     gen_rand_grid();
-    gen_rand_colors();
+
+    const col bg = get_other_color(BACKGROUND);
 
     while (running)
     {
-	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-	glClear(GL_COLOR_BUFFER_BIT);
-	for (int i = 0; i < 190; i++)
-	{
-	    if (grid[i] == 0)
-	 	continue;
-	    glm::mat4 model(1.0);
-	    int row = i / 10;
-	    int col = i % 10;
-
-	    glm::vec2 position = glm::vec2(grid_left+col*block_width,
-					   row*block_height);
-
-	    model = glm::translate(glm::mat4(1.0f), glm::vec3(position, 0.0f));
-	    model = glm::scale(model, glm::vec3(block_width, block_height, 1.0f));
-	    
-	    glUniformMatrix4fv(uni_mod_loc, 1, GL_FALSE, glm::value_ptr(model));
-
-	    glUniform3f(uni_col_loc, colors[i].r, colors[i].g, colors[i].b);
-	    
-	    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-	}
-	glfwSwapBuffers(window);
 	handle_events();
 	loc_pers double prev_time = glfwGetTime();
 	loc_pers uint frames;
@@ -92,8 +71,30 @@ int main()
 	    frames = 0;
 	    prev_time += 1.0f;
 	    gen_rand_grid();
-	    gen_rand_colors();
 	}
+	glClearColor(bg.r, bg.g, bg.b, 0.0f);
+	glClear(GL_COLOR_BUFFER_BIT);
+	for (int i = 0; i < 190; i++)
+	{
+	    if (grid[i] == 0)
+	 	continue;
+	    glm::mat4 model(1.0);
+	    int row = i / 10;
+	    int col = i % 10;
+
+	    glm::vec2 position = glm::vec2(grid_left+col*block_width,
+					   row*block_height);
+	    model = glm::translate(glm::mat4(1.0f), glm::vec3(position, 0.0f));
+	    model = glm::scale(model, glm::vec3(block_width, block_height, 1.0f));
+	    
+	    glUniformMatrix4fv(uni_mod_loc, 1, GL_FALSE, glm::value_ptr(model));
+	    
+	    col_val = type_to_color(grid[i]);
+	    glUniform3f(uni_col_loc, col_val.r, col_val.g, col_val.b);
+	    
+	    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+	}
+	glfwSwapBuffers(window);
     }
     glDeleteProgram(shader_program);
     glDeleteShader(vertex_shader);
@@ -104,65 +105,101 @@ int main()
     return 0;
 }
 
-col get_color(color_type c)
+internal col
+type_to_color(block_type t)
+{
+    switch (t)
+    {
+	case NA:
+	    return get_other_color(BACKGROUND);
+	    break;
+	case I:
+	    return get_block_color(BLUE_GREEN);
+	    break;
+	case O:
+	    return get_block_color(GOLD);
+	    break;
+	case T:
+	    return get_block_color(PURPLE);
+	    break;
+	case Z:
+	    return get_block_color(RED);
+	    break;
+	case S:
+	    return get_block_color(LIGHT_GREEN);
+	    break;
+	case J:
+	    return get_block_color(BLUE);
+	    break;
+	case L:
+	    return get_block_color(RED_ORANGE);
+	    break;
+	default:
+	    return get_block_color(block_color(-1));
+	    break;
+    }
+}
+
+internal col
+get_block_color(block_color c)
 {
     col color;
-    if (c < 0 || c > 11)
-    {
-	color.r = -1.0f;color.g = -1.0f;color.b = -1.0f;
-	return color;
-    }
     switch (c)
     {
-	case BLACK:
-	    color.r = 0.0f; color.g = 0.0f; color.b = 0.0f; 
-	    break;
-	case BACKGROUND:
-	    color.r = 0.0f; color.g = 0.0f; color.b = 0.0f; 
-	    break;
-	case GRAY:
-	    color.r = 0.0f; color.g = 0.0f; color.b = 0.0f; 
-	    break;
-	case FOREGROUND:
-	    color.r = 0.0f; color.g = 0.0f; color.b = 0.0f; 
-	    break;
-	case WHITE:
-	    color.r = 0.0f; color.g = 0.0f; color.b = 0.0f; 
-	    break;
 	case RED:
-	    color.r = 0.0f; color.g = 0.0f; color.b = 0.0f; 
+	    color.r = float(255)/255; color.g = float(81)/255; color.b = float(109)/255; 
 	    break;
-	case ORANGE:
-	    color.r = 0.0f; color.g = 0.0f; color.b = 0.0f; 
+	case RED_ORANGE:
+	    color.r = float(247)/255; color.g = float(118)/255; color.b = float(105)/255; 
 	    break;
 	case GOLD:
-	    color.r = 0.0f; color.g = 0.0f; color.b = 0.0f; 
-	    break;
-	case BLUE:
-	    color.r = 0.0f; color.g = 0.0f; color.b = 0.0f; 
-	    break;
-	case BLUE_GREEN:
-	    color.r = 0.0f; color.g = 0.0f; color.b = 0.0f; 
+	    color.r = float(255)/255; color.g = float(196)/255; color.b = float(0)/255; 
 	    break;
 	case PURPLE:
-	    color.r = 0.0f; color.g = 0.0f; color.b = 0.0f; 
+	    color.r = float(199)/255; color.g = float(146)/255; color.b = float(234)/255; 
+	    break;
+	case BLUE:
+	    color.r = float(116)/255; color.g = float(177)/255; color.b = float(255)/255; 
+	    break;
+	case BLUE_GREEN:
+	    color.r = float(91)/255; color.g = float(203)/255; color.b = float(196)/255; 
 	    break;
 	case LIGHT_GREEN:
-	    color.r = 0.0f; color.g = 0.0f; color.b = 0.0f; 
+	    color.r = float(194)/255; color.g = float(233)/255; color.b = float(130)/255; 
+	    break;
+	default:
+	    color.r = -1.0f;color.g = -1.0f;color.b = -1.0f;
 	    break;
     }
     return color;
 }
 
-internal void
-gen_rand_colors()
+internal col 
+get_other_color(other_color c)
 {
-    for (int i = 0; i < 190; i++)
+    col color;
+    switch (c)
     {
-	colors[i].r = float(rand() % 255) / 255;
-	colors[i].g = float(rand() % 255) / 255;
-	colors[i].b = float(rand() % 255) / 255;
+	case BLACK:
+	    color.r = float(0)/255; color.g = float(0)/255; color.b = float(0)/255; 
+	    break;
+	case BACKGROUND:
+	    color.r = float(38)/255; color.g = float(50)/255; color.b = float(56)/255; 
+	    break;
+	case GRAY:
+	    color.r = float(84)/255; color.g = float(109)/255; color.b = float(122)/255; 
+	    break;
+	case FOREGROUND:
+	    color.r = float(205)/255; color.g = float(211)/255; color.b = float(188)/255; 
+	    break;
+	case WHITE:
+	    color.r = float(255)/255; color.g = float(255)/255; color.b = float(255)/255; 
+	    break;
+	default:
+	    color.r = -1.0f;color.g = -1.0f;color.b = -1.0f;
+	    break;
     }
+    return color;
 }
 
 internal void
@@ -170,10 +207,7 @@ gen_rand_grid()
 {
     for (int i = 0; i < 190; i++)
     {
-	if (rand() % 100 >= 50)
-	    grid[i] = 1;
-	else
-	    grid[i] = 0;
+	grid[i] = block_type(rand() % 8);
     }
 }
 
