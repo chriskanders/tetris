@@ -58,16 +58,17 @@ int main()
 
     const col bg = get_other_color(BACKGROUND);
 
-    while (running)
+    while (global_running)
     {
 	handle_events();
+	
 	loc_pers double prev_time = glfwGetTime();
 	loc_pers uint frames;
 	double this_time = glfwGetTime();
 	frames++;
 	if (this_time - prev_time >= 1.0f) 
 	{
-	    printf("Current frames: %d\n", frames);
+	    //printf("Current frames: %d\n", frames);
 	    frames = 0;
 	    prev_time += 1.0f;
 	    gen_rand_grid();
@@ -76,8 +77,9 @@ int main()
 	glClear(GL_COLOR_BUFFER_BIT);
 	for (int i = 0; i < 190; i++)
 	{
-	    if (grid[i] == 0)
+	    if (global_grid[i] == NA)
 	 	continue;
+	    col col_val; //TODO(chris): research error if put farther down
 	    glm::mat4 model(1.0);
 	    int row = i / 10;
 	    int col = i % 10;
@@ -89,12 +91,12 @@ int main()
 	    
 	    glUniformMatrix4fv(uni_mod_loc, 1, GL_FALSE, glm::value_ptr(model));
 	    
-	    col_val = type_to_color(grid[i]);
+	    col_val = type_to_color(global_grid[i]);
 	    glUniform3f(uni_col_loc, col_val.r, col_val.g, col_val.b);
 	    
 	    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 	}
-	glfwSwapBuffers(window);
+	glfwSwapBuffers(global_window);
     }
     glDeleteProgram(shader_program);
     glDeleteShader(vertex_shader);
@@ -103,6 +105,15 @@ int main()
     glDeleteBuffers(1, &vertex_buffer_object);
     glfwTerminate();
     return 0;
+}
+
+internal void
+reset_grid()
+{
+    for (int i = 0; i < 190; i++)
+    {
+	global_grid[i] = NA;
+    }
 }
 
 internal col
@@ -146,11 +157,8 @@ get_block_color(block_color c)
     col color;
     switch (c)
     {
-	case RED:
-	    color.r = float(255)/255; color.g = float(81)/255; color.b = float(109)/255; 
-	    break;
-	case RED_ORANGE:
-	    color.r = float(247)/255; color.g = float(118)/255; color.b = float(105)/255; 
+	case BLUE_GREEN:
+	    color.r = float(91)/255; color.g = float(203)/255; color.b = float(196)/255; 
 	    break;
 	case GOLD:
 	    color.r = float(255)/255; color.g = float(196)/255; color.b = float(0)/255; 
@@ -158,14 +166,17 @@ get_block_color(block_color c)
 	case PURPLE:
 	    color.r = float(199)/255; color.g = float(146)/255; color.b = float(234)/255; 
 	    break;
-	case BLUE:
-	    color.r = float(116)/255; color.g = float(177)/255; color.b = float(255)/255; 
-	    break;
-	case BLUE_GREEN:
-	    color.r = float(91)/255; color.g = float(203)/255; color.b = float(196)/255; 
+	case RED:
+	    color.r = float(255)/255; color.g = float(81)/255; color.b = float(109)/255; 
 	    break;
 	case LIGHT_GREEN:
 	    color.r = float(194)/255; color.g = float(233)/255; color.b = float(130)/255; 
+	    break;
+	case BLUE:
+	    color.r = float(116)/255; color.g = float(177)/255; color.b = float(255)/255; 
+	    break;
+	case RED_ORANGE:
+	    color.r = float(247)/255; color.g = float(118)/255; color.b = float(105)/255; 
 	    break;
 	default:
 	    color.r = -1.0f;color.g = -1.0f;color.b = -1.0f;
@@ -207,27 +218,24 @@ gen_rand_grid()
 {
     for (int i = 0; i < 190; i++)
     {
-	grid[i] = block_type(rand() % 8);
+	global_grid[i] = block_type(rand() % 8);
     }
 }
 
 internal void
 init_game_globals()
 {
-    running = true;
+    global_running = true;
 }
 
 internal void
 handle_events()
 {
     glfwPollEvents();
-    if (glfwWindowShouldClose(window))
+    if (glfwWindowShouldClose(global_window))
     {
-	running = false;
+	global_running = false;
     }   
-    if (is_down(GLFW_KEY_ESCAPE)) {
-	running = false;
-    }
 }
 
 internal void
@@ -248,40 +256,48 @@ init_glfw_opengl()
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
     glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
     // initialize window, make current context
-    window = glfwCreateWindow(1280, 720, "tetris", nullptr, nullptr);
-    glfwMakeContextCurrent(window);
+    global_window = glfwCreateWindow(1280, 720, "tetris", nullptr, nullptr);
+    glfwMakeContextCurrent(global_window);
     // initialize glew
     glewExperimental = GL_TRUE;
     glewInit();
     // set glfw callback functions
-    glfwSetKeyCallback(window, key_callback);
+    glfwSetKeyCallback(global_window, key_callback);
 }
 
 internal void
 key_callback(GLFWwindow *window, int key, int scancode, int action, int mods)
 {
-    if (key == -1)
+    if (action == GLFW_REPEAT)
     {
-	// TODO(chris): diagnostics
 	return;
     }
-    key_status[key] = action;
-}
-
-internal int
-is_up(int key)
-{
-    return (key_status[key] == GLFW_RELEASE);
-}
-
-internal int
-is_down(int key)
-{
-    return (key_status[key] == GLFW_PRESS);
-}
-
-internal int
-is_held(int key)
-{
-    return (key_status[key] == GLFW_REPEAT);
+    bool pressed = action == GLFW_PRESS;
+    switch (key)
+    {
+	case GLFW_KEY_ESCAPE:
+	{
+	    global_running = false;
+	} break;
+	case GLFW_KEY_SPACE:
+	{
+	    global_key_state.space = pressed ? true : false;
+	} break;
+	case GLFW_KEY_RIGHT:
+	{
+	    global_key_state.right= pressed ? true : false;
+	} break;
+	case GLFW_KEY_LEFT:
+	{
+	    global_key_state.left= pressed ? true : false;
+	} break;
+	case GLFW_KEY_DOWN:
+	{
+	    global_key_state.down = pressed ? true : false;
+	} break;
+	case GLFW_KEY_UP:
+	{
+	    global_key_state.up= pressed ? true : false;
+	} break;
+    }
 }

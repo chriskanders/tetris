@@ -38,9 +38,6 @@ typedef double real64;
 
 #define GLSL(src) "#version 330 core\n" #src
 
-#define OPENGL_ERROR_CHECK(line) \
-    {printf("OpenGL Error(%d): %d\n", glGetError(), line);}
-
 #define internal static
 #define loc_pers static
 #define glob_var static
@@ -61,9 +58,8 @@ const glm::mat4 projection = glm::ortho(0.0f, 1280.0f,
 
 enum block_type {NA, I, O, T, Z, S, J, L};
 
-enum block_color {RED, RED_ORANGE, GOLD,
-		  PURPLE, BLUE, BLUE_GREEN,
-		  LIGHT_GREEN};
+enum block_color {BLUE_GREEN, GOLD, PURPLE, RED,
+		  LIGHT_GREEN, BLUE, RED_ORANGE};
 
 enum other_color {BLACK, BACKGROUND, GRAY, FOREGROUND, WHITE};
 
@@ -72,6 +68,22 @@ typedef struct {
     float g;
     float b;
 } col;
+
+typedef struct {
+    block_type type;
+    int x;
+    int y;
+    int dir;
+    int tiles[4][4];
+} block;
+
+typedef struct {
+    bool up;
+    bool down;
+    bool left;
+    bool right;
+    bool space;
+} key_state;
 
 const GLchar *vert = GLSL(
         in vec2 position;
@@ -92,6 +104,7 @@ const GLchar *frag = GLSL(
 );
 
 // function declarations
+internal void reset_grid();
 internal col type_to_color(block_type);
 internal col get_block_color(block_color);
 internal col get_other_color(other_color);
@@ -106,11 +119,10 @@ internal int is_down(int);
 internal int is_held(int);
 
 // global variables
-glob_var bool running;
-glob_var GLFWwindow *window;
-glob_var int key_status[349];
-glob_var block_type active_block;
-glob_var block_type grid[190];
-glob_var col col_val;
+glob_var bool global_running;
+glob_var GLFWwindow *global_window;
+glob_var block_type global_active_block;
+glob_var block_type global_grid[190];
+glob_var key_state global_key_state;
 
 #endif
