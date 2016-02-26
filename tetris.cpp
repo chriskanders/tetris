@@ -1,8 +1,19 @@
 #include "tetris.hpp"
+#include "tetromino.hpp"
+
+// global variables
+glob_var bool global_running;
+glob_var GLFWwindow *global_window;
+glob_var tetromino *global_tetromino;
+glob_var block_type global_grid[200];
+glob_var key_state global_key_state;
+
+#include "tetromino.cpp"
 
 int main()
 {
     // initialize glfw, global variables, buffer objects, shaders
+    srand((uint)time(NULL));
     init_game_globals();
     init_glfw_opengl();
 
@@ -51,39 +62,38 @@ int main()
     glUniformMatrix4fv(uni_proj_loc, 1, GL_FALSE, glm::value_ptr(projection));
     GLint uni_mod_loc = glGetUniformLocation(shader_program, "model");
     GLint uni_col_loc = glGetUniformLocation(shader_program, "in_color");
+
+    reset_grid();
+
+    global_tetromino->grid_y = 10;
+
+    global_tetromino->draw_on_grid();
     
-    srand((uint)time(NULL));
-
-    gen_rand_grid();
-
-    const col bg = get_other_color(BACKGROUND);
+    const color bg = get_other_color(BACKGROUND);
 
     while (global_running)
     {
 	handle_events();
-	
 	loc_pers double prev_time = glfwGetTime();
 	loc_pers uint frames;
 	double this_time = glfwGetTime();
 	frames++;
 	if (this_time - prev_time >= 1.0f) 
 	{
-	    //printf("Current frames: %d\n", frames);
+	    printf("Current frames: %d\n", frames);
 	    frames = 0;
 	    prev_time += 1.0f;
-	    gen_rand_grid();
 	}
 	glClearColor(bg.r, bg.g, bg.b, 0.0f);
 	glClear(GL_COLOR_BUFFER_BIT);
-	for (int i = 0; i < 190; i++)
+	for (int i = 10; i < 200; i++)
 	{
 	    if (global_grid[i] == NA)
 	 	continue;
-	    col col_val; //TODO(chris): research error if put farther down
+	    
 	    glm::mat4 model(1.0);
-	    int row = i / 10;
-	    int col = i % 10;
-
+	    int row = (i - 10) / 10;
+	    int col = (i - 10) % 10;
 	    glm::vec2 position = glm::vec2(grid_left+col*block_width,
 					   row*block_height);
 	    model = glm::translate(glm::mat4(1.0f), glm::vec3(position, 0.0f));
@@ -91,7 +101,7 @@ int main()
 	    
 	    glUniformMatrix4fv(uni_mod_loc, 1, GL_FALSE, glm::value_ptr(model));
 	    
-	    col_val = type_to_color(global_grid[i]);
+	    color col_val = type_to_color(global_grid[i]);
 	    glUniform3f(uni_col_loc, col_val.r, col_val.g, col_val.b);
 	    
 	    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
@@ -110,113 +120,165 @@ int main()
 internal void
 reset_grid()
 {
-    for (int i = 0; i < 190; i++)
+    for (int i = 10; i < 200; i++)
     {
 	global_grid[i] = NA;
     }
 }
 
-internal col
+internal color
 type_to_color(block_type t)
 {
-    switch (t)
+   switch (t)
     {
 	case NA:
+	{
 	    return get_other_color(BACKGROUND);
-	    break;
+	} break;
 	case I:
+	{
 	    return get_block_color(BLUE_GREEN);
-	    break;
+	} break;
 	case O:
+	{
 	    return get_block_color(GOLD);
-	    break;
+	} break;
 	case T:
+	{
 	    return get_block_color(PURPLE);
-	    break;
+	} break;
 	case Z:
+	{
 	    return get_block_color(RED);
-	    break;
+	} break;
 	case S:
+	{
 	    return get_block_color(LIGHT_GREEN);
-	    break;
+	} break;
 	case J:
+	{
 	    return get_block_color(BLUE);
-	    break;
+	} break;
 	case L:
+	{
 	    return get_block_color(RED_ORANGE);
-	    break;
+	} break;
 	default:
+	{
 	    return get_block_color(block_color(-1));
-	    break;
+	} break;
+	
     }
 }
 
-internal col
+internal color
 get_block_color(block_color c)
 {
-    col color;
+    color color_v;
     switch (c)
     {
 	case BLUE_GREEN:
-	    color.r = float(91)/255; color.g = float(203)/255; color.b = float(196)/255; 
-	    break;
+	{
+	    color_v.r = float(91)/255;
+	    color_v.g = float(203)/255;
+	    color_v.b = float(196)/255; 
+	} break;
 	case GOLD:
-	    color.r = float(255)/255; color.g = float(196)/255; color.b = float(0)/255; 
-	    break;
+	{
+	    color_v.r = float(255)/255;
+	    color_v.g = float(196)/255;
+	    color_v.b = float(0)/255; 
+	} break;
 	case PURPLE:
-	    color.r = float(199)/255; color.g = float(146)/255; color.b = float(234)/255; 
-	    break;
+	{
+	    color_v.r = float(199)/255;
+	    color_v.g = float(146)/255;
+	    color_v.b = float(234)/255; 
+	} break;
 	case RED:
-	    color.r = float(255)/255; color.g = float(81)/255; color.b = float(109)/255; 
-	    break;
+	{
+	    color_v.r = float(255)/255;
+	    color_v.g = float(81)/255;
+	    color_v.b = float(109)/255; 
+	} break;
 	case LIGHT_GREEN:
-	    color.r = float(194)/255; color.g = float(233)/255; color.b = float(130)/255; 
-	    break;
+	{
+	    color_v.r = float(194)/255;
+	    color_v.g = float(233)/255;
+	    color_v.b = float(130)/255; 
+	} break;
 	case BLUE:
-	    color.r = float(116)/255; color.g = float(177)/255; color.b = float(255)/255; 
-	    break;
+	{
+	    color_v.r = float(116)/255;
+	    color_v.g = float(177)/255;
+	    color_v.b = float(255)/255; 
+	} break;
 	case RED_ORANGE:
-	    color.r = float(247)/255; color.g = float(118)/255; color.b = float(105)/255; 
-	    break;
+	{
+	    color_v.r = float(247)/255;
+	    color_v.g = float(118)/255;
+	    color_v.b = float(105)/255; 
+	} break;
 	default:
-	    color.r = -1.0f;color.g = -1.0f;color.b = -1.0f;
-	    break;
+	{
+	    color_v.r = -1.0f;
+	    color_v.g = -1.0f;
+	    color_v.b = -1.0f;
+	} break;
     }
-    return color;
+    return color_v;
 }
 
-internal col 
+internal color 
 get_other_color(other_color c)
 {
-    col color;
+    color color_v;
     switch (c)
     {
 	case BLACK:
-	    color.r = float(0)/255; color.g = float(0)/255; color.b = float(0)/255; 
-	    break;
+	{
+	    color_v.r = float(0)/255;
+	    color_v.g = float(0)/255;
+	    color_v.b = float(0)/255; 
+	} break;
 	case BACKGROUND:
-	    color.r = float(38)/255; color.g = float(50)/255; color.b = float(56)/255; 
-	    break;
+	{
+	    color_v.r = float(38)/255;
+	    color_v.g = float(50)/255;
+	    color_v.b = float(56)/255; 
+	} break;
 	case GRAY:
-	    color.r = float(84)/255; color.g = float(109)/255; color.b = float(122)/255; 
-	    break;
+	{
+	    color_v.r = float(84)/255;
+	    color_v.g = float(109)/255;
+	    color_v.b = float(122)/255; 
+	} break;
 	case FOREGROUND:
-	    color.r = float(205)/255; color.g = float(211)/255; color.b = float(188)/255; 
-	    break;
+	{
+	    color_v.r = float(205)/255;
+	    color_v.g = float(211)/255;
+	    color_v.b = float(188)/255; 
+	} break;
 	case WHITE:
-	    color.r = float(255)/255; color.g = float(255)/255; color.b = float(255)/255; 
-	    break;
+	{
+	    color_v.r = float(255)/255;
+	    color_v.g = float(255)/255;
+	    color_v.b = float(255)/255; 
+	} break;
 	default:
-	    color.r = -1.0f;color.g = -1.0f;color.b = -1.0f;
-	    break;
+	{
+	    color_v.r = -1.0f;
+	    color_v.g = -1.0f;
+	    color_v.b = -1.0f;
+	} break;
     }
-    return color;
+    return color_v;
 }
 
 internal void
 gen_rand_grid()
 {
-    for (int i = 0; i < 190; i++)
+    for (int i = 10; i < 200; i++)
     {
 	global_grid[i] = block_type(rand() % 8);
     }
@@ -226,6 +288,8 @@ internal void
 init_game_globals()
 {
     global_running = true;
+    global_tetromino= (tetromino*)malloc(sizeof(tetromino));
+    global_tetromino->init(block_type((rand() % 7) + 1));
 }
 
 internal void
@@ -236,6 +300,26 @@ handle_events()
     {
 	global_running = false;
     }   
+    if (global_key_state.up)
+    {
+	global_tetromino->rotate();
+    }
+    if (global_key_state.down)
+    {
+	
+    }
+    if (global_key_state.left)
+    {
+	global_tetromino->move_left();
+    }
+    if (global_key_state.right)
+    {
+	global_tetromino->move_right();
+    }
+    if (global_key_state.space)
+    {
+	global_tetromino->slam_down();
+    }
 }
 
 internal void
@@ -268,11 +352,6 @@ init_glfw_opengl()
 internal void
 key_callback(GLFWwindow *window, int key, int scancode, int action, int mods)
 {
-    if (action == GLFW_REPEAT)
-    {
-	return;
-    }
-    bool pressed = action == GLFW_PRESS;
     switch (key)
     {
 	case GLFW_KEY_ESCAPE:
@@ -281,23 +360,23 @@ key_callback(GLFWwindow *window, int key, int scancode, int action, int mods)
 	} break;
 	case GLFW_KEY_SPACE:
 	{
-	    global_key_state.space = pressed ? true : false;
+	    global_key_state.space = action;
 	} break;
 	case GLFW_KEY_RIGHT:
 	{
-	    global_key_state.right= pressed ? true : false;
+	    global_key_state.right = action;
 	} break;
 	case GLFW_KEY_LEFT:
 	{
-	    global_key_state.left= pressed ? true : false;
+	    global_key_state.left = action;
 	} break;
 	case GLFW_KEY_DOWN:
 	{
-	    global_key_state.down = pressed ? true : false;
+	    global_key_state.down = action;
 	} break;
 	case GLFW_KEY_UP:
 	{
-	    global_key_state.up= pressed ? true : false;
+	    global_key_state.up = action;
 	} break;
     }
 }

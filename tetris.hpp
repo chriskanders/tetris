@@ -13,6 +13,9 @@
 #include <time.h>
 #include <stdint.h>
 
+
+
+
 typedef unsigned char uchar;
 typedef unsigned short ushort;
 typedef unsigned int uint;
@@ -63,27 +66,19 @@ enum block_color {BLUE_GREEN, GOLD, PURPLE, RED,
 
 enum other_color {BLACK, BACKGROUND, GRAY, FOREGROUND, WHITE};
 
-typedef struct {
+struct color {
     float r;
     float g;
     float b;
-} col;
+};
 
-typedef struct {
-    block_type type;
-    int x;
-    int y;
-    int dir;
-    int tiles[4][4];
-} block;
-
-typedef struct {
-    bool up;
-    bool down;
-    bool left;
-    bool right;
-    bool space;
-} key_state;
+struct key_state {
+    int up;
+    int down;
+    int left;
+    int right;
+    int space;
+};
 
 const GLchar *vert = GLSL(
         in vec2 position;
@@ -105,24 +100,14 @@ const GLchar *frag = GLSL(
 
 // function declarations
 internal void reset_grid();
-internal col type_to_color(block_type);
-internal col get_block_color(block_color);
-internal col get_other_color(other_color);
+internal color type_to_color(block_type);
+internal color get_block_color(block_color);
+internal color get_other_color(other_color);
 internal void gen_rand_grid();
 internal void init_game_globals();
 internal void handle_events();
 internal void update_grid();
 internal void init_glfw_opengl();
 internal void key_callback(GLFWwindow*, int, int, int, int);
-internal int is_up(int);
-internal int is_down(int);
-internal int is_held(int);
-
-// global variables
-glob_var bool global_running;
-glob_var GLFWwindow *global_window;
-glob_var block_type global_active_block;
-glob_var block_type global_grid[190];
-glob_var key_state global_key_state;
 
 #endif
