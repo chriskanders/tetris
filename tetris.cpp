@@ -8,6 +8,7 @@ glob_var tetromino *global_tetromino;
 glob_var block_type global_grid[200];
 glob_var key_state global_key_state;
 glob_var double step_time;
+glob_var ullong global_points;
 
 #include "tetromino.cpp"
 
@@ -66,7 +67,6 @@ int main()
 
     reset_grid();
 
-    global_tetromino->grid_y = 0;
     global_tetromino->draw();
     
     const color bg = get_other_color(BACKGROUND);
@@ -81,6 +81,16 @@ int main()
 	{
 	    prev_time += step_time;
 	    global_tetromino->move_down();
+	    if (global_tetromino->locked)
+	    {
+		clear_full_lines();
+		global_tetromino->init(block_type((rand() % 8) + 1));
+		if (!global_tetromino->valid())
+		{
+		    global_running = false;
+		    printf("final points: %llu\n", global_points);
+		}
+	    }
 	}
 	glClearColor(bg.r, bg.g, bg.b, 0.0f);
 	glClear(GL_COLOR_BUFFER_BIT);
@@ -104,14 +114,8 @@ int main()
 	    
 	    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 	}
-	
 	glfwSwapBuffers(global_window);
         double delta_time = glfwGetTime() - start_time;
-	if (global_tetromino->locked)
-	{
-	    clear_full_lines();
-	    global_tetromino->init(block_type((rand() % 8) + 1));
-	}
 	Sleep(int(1000.0f/16.0f - (delta_time * 1000)));
     }
     glDeleteProgram(shader_program);
@@ -142,17 +146,27 @@ clear_line(int row)
 internal void
 clear_full_lines()
 {
-    for (int r = 19; r >= 0; r--)
+    for (int r= 19; r>= 0; r--)
     {
 	bool full = true;
-	for (int c = 0; c < 10; c++)
+	for (int c= 0; c < 10; c++)
 	{
 	    if (global_grid[r * 10 + c] == NA)
 		full = false;
 	}
 	if (full)
 	{
-	    clear_line(r);
+	    for (int c = 0; c < 10; c++)
+	    {
+		global_grid[r * 10 + c] = NA;
+	    }
+	    for (int row = r - 1; row >= 0; row--)
+	    {
+		for (int c = 0; c < 10; c++)
+		{
+		    global_grid[(row+1) * 10 + c] = (block_type)global_grid[row * 10 + c];
+		}
+	    }
 	    r++;
 	}
     }
@@ -323,11 +337,13 @@ init_game_globals()
     global_tetromino= (tetromino*)malloc(sizeof(tetromino));
     global_tetromino->init(block_type((rand() % 7) + 1));
     step_time = 1.0f;
+    global_points = 0;
 }
 
 internal void
 handle_events()
 {
+    // TODO(chris): make sure to include GLFW_PRESS in repeat incrementation
     glfwPollEvents();
     if (glfwWindowShouldClose(global_window))
     {
@@ -335,11 +351,14 @@ handle_events()
     }   
     if (global_key_state.up)
     {
-	global_tetromino->rotate();
+	if (global_key_state.up == GLFW_PRESS)
+	    global_tetromino->rotate();
+	else if (global_key_state.repeat % 5 == 0 || global_key_state.repeat != 0)
+	    global_tetromino->rotate();
     }
     if (global_key_state.down)
     {
-	step_time = 0.1f;
+	step_time = 0.12f;
     }
     else
     {
@@ -347,22 +366,26 @@ handle_events()
     }
     if (global_key_state.left)
     {
-	global_tetromino->move_left();
+	if (global_key_state.left == GLFW_PRESS)
+	    global_tetromino->move_left();
+	else if (global_key_state.repeat % 3 == 0 || global_key_state.repeat != 0)
+	    global_tetromino->move_left();
     }
     if (global_key_state.right)
     {
-	global_tetromino->move_right();
+	if (global_key_state.right == GLFW_PRESS)
+	    global_tetromino->move_right();
+	else if (global_key_state.repeat % 3 == 0 || global_key_state.repeat != 0)
+	    global_tetromino->move_right();
+	
     }
     if (global_key_state.space)
     {
-	global_tetromino->slam_down();
+	if (global_key_state.space == GLFW_PRESS)
+	    global_tetromino->slam_down();
+	else if (global_key_state.repeat % 3 == 0 || global_key_state.repeat != 0)
+	    global_tetromino->slam_down();
     }
-}
-
-internal void
-update_grid()
-{
-    
 }
 
 internal void
@@ -389,6 +412,15 @@ init_glfw_opengl()
 internal void
 key_callback(GLFWwindow *window, int key, int scancode, int action, int mods)
 {
+    if (action == GLFW_REPEAT)
+    {
+	global_key_state.repeat++;
+	return;
+    }
+    if (action == GLFW_RELEASE)
+    {
+	global_key_state.repeat = 0;
+    }
     switch (key)
     {
 	case GLFW_KEY_ESCAPE:

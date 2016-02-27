@@ -34,7 +34,7 @@ typedef uint64_t uint64;
 typedef float real32;
 typedef double real64;
 
-#define ASSERT(expression) {if (!expression) {*(char *)0 = 0;printf("ERROR\n");}}
+#define ASSERT(expression) {if (!expression) {*(char *)0 = 0;}}
 
 #define GLSL(src) "#version 330 core\n" #src
 
@@ -75,6 +75,7 @@ struct key_state {
     int left;
     int right;
     int space;
+    ullong repeat;
 };
 
 const GLchar *vert = GLSL(
