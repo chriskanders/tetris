@@ -1,6 +1,8 @@
 #ifndef TETRIS_HPP
 #define TETRIS_HPP
 
+#include <windows.h>
+
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
@@ -12,9 +14,6 @@
 #include <math.h>
 #include <time.h>
 #include <stdint.h>
-
-
-
 
 typedef unsigned char uchar;
 typedef unsigned short ushort;
@@ -35,9 +34,7 @@ typedef uint64_t uint64;
 typedef float real32;
 typedef double real64;
 
-#define ERROR(exp, message) {if (exp) {printf(#message);}}
-
-#define ASSERT(expression) {if (!expression) {*(char *)0 = 0;}}
+#define ASSERT(expression) {if (!expression) {*(char *)0 = 0;printf("ERROR\n");}}
 
 #define GLSL(src) "#version 330 core\n" #src
 
@@ -99,11 +96,12 @@ const GLchar *frag = GLSL(
 );
 
 // function declarations
+internal void clear_line(int);
+internal void clear_full_lines();
 internal void reset_grid();
 internal color type_to_color(block_type);
 internal color get_block_color(block_color);
 internal color get_other_color(other_color);
-internal void gen_rand_grid();
 internal void init_game_globals();
 internal void handle_events();
 internal void update_grid();

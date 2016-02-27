@@ -7,6 +7,7 @@ glob_var GLFWwindow *global_window;
 glob_var tetromino *global_tetromino;
 glob_var block_type global_grid[200];
 glob_var key_state global_key_state;
+glob_var double step_time;
 
 #include "tetromino.cpp"
 
@@ -65,24 +66,21 @@ int main()
 
     reset_grid();
 
-    global_tetromino->grid_y = 10;
-
-    global_tetromino->draw_on_grid();
+    global_tetromino->grid_y = 0;
+    global_tetromino->draw();
     
     const color bg = get_other_color(BACKGROUND);
 
     while (global_running)
     {
+	double start_time = glfwGetTime();
 	handle_events();
 	loc_pers double prev_time = glfwGetTime();
-	loc_pers uint frames;
 	double this_time = glfwGetTime();
-	frames++;
-	if (this_time - prev_time >= 1.0f) 
+	if (this_time - prev_time >= step_time) 
 	{
-	    printf("Current frames: %d\n", frames);
-	    frames = 0;
-	    prev_time += 1.0f;
+	    prev_time += step_time;
+	    global_tetromino->move_down();
 	}
 	glClearColor(bg.r, bg.g, bg.b, 0.0f);
 	glClear(GL_COLOR_BUFFER_BIT);
@@ -106,7 +104,15 @@ int main()
 	    
 	    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 	}
+	
 	glfwSwapBuffers(global_window);
+        double delta_time = glfwGetTime() - start_time;
+	if (global_tetromino->locked)
+	{
+	    clear_full_lines();
+	    global_tetromino->init(block_type((rand() % 8) + 1));
+	}
+	Sleep(int(1000.0f/16.0f - (delta_time * 1000)));
     }
     glDeleteProgram(shader_program);
     glDeleteShader(vertex_shader);
@@ -115,6 +121,41 @@ int main()
     glDeleteBuffers(1, &vertex_buffer_object);
     glfwTerminate();
     return 0;
+}
+
+internal void
+clear_line(int row)
+{
+    for (int c = 0; c < 10; c++)
+    {
+	global_grid[row * 10 + c] = NA;
+    }
+    for (int r = row - 1; r >= 0; r--)
+    {
+	for (int c = 0; c < 10; c++)
+	{
+	    global_grid[(r+1) * 10 + c] = (block_type)global_grid[r * 10 + c];
+	}
+    }
+}
+
+internal void
+clear_full_lines()
+{
+    for (int r = 19; r >= 0; r--)
+    {
+	bool full = true;
+	for (int c = 0; c < 10; c++)
+	{
+	    if (global_grid[r * 10 + c] == NA)
+		full = false;
+	}
+	if (full)
+	{
+	    clear_line(r);
+	    r++;
+	}
+    }
 }
 
 internal void
@@ -276,20 +317,12 @@ get_other_color(other_color c)
 }
 
 internal void
-gen_rand_grid()
-{
-    for (int i = 10; i < 200; i++)
-    {
-	global_grid[i] = block_type(rand() % 8);
-    }
-}
-
-internal void
 init_game_globals()
 {
     global_running = true;
     global_tetromino= (tetromino*)malloc(sizeof(tetromino));
     global_tetromino->init(block_type((rand() % 7) + 1));
+    step_time = 1.0f;
 }
 
 internal void
@@ -306,7 +339,11 @@ handle_events()
     }
     if (global_key_state.down)
     {
-	
+	step_time = 0.1f;
+    }
+    else
+    {
+	step_time = 1.0f;
     }
     if (global_key_state.left)
     {

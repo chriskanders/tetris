@@ -2,8 +2,8 @@
 #define TETROMINO_HPP
 
 #define ARRAY_LIST(arr){ \
-	arr[0], arr[1], arr[2], arr[3], arr[4], \
-	arr[5], arr[6], arr[7], arr[8], arr[9], \
+	arr[0],  arr[1],  arr[2],  arr[3],  arr[4], \
+	arr[5],  arr[6],  arr[7],  arr[8],  arr[9], \
 	arr[10], arr[11], arr[12], arr[13], arr[14], \
 	arr[15], arr[16], arr[17], arr[18], arr[19], \
 	arr[20], arr[21], arr[22], arr[23], arr[24] \
@@ -18,13 +18,18 @@ struct tetromino {
     int cen_y;
     int grid_x;
     int grid_y;
+    bool drawn;
+    bool locked;
     bool bottom;
     void init(block_type);
-    void copy_grid(const int*);
-    void draw_on_grid();
+    void set_grid(const int*);
+    void draw();
+    void erase();
+    bool valid();
     void rotate();
     void move_left();
     void move_right();
+    void move_down();
     void slam_down();
 };
 
