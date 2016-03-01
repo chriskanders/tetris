@@ -53,6 +53,8 @@ const float block_height = float(round(grid_height/19));
 const float grid_left = float((SCREEN_WIDTH/2)-(grid_width/2));
 const float grid_right = float((SCREEN_WIDTH/2)+(grid_width/2));
 
+const float border_size = 4.0f;
+
 const glm::mat4 projection = glm::ortho(0.0f, 1280.0f,
 				        720.0f, 0.0f);
 

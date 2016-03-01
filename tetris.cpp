@@ -85,11 +85,6 @@ int main()
 	    {
 		clear_full_lines();
 		global_tetromino->init(block_type((rand() % 8) + 1));
-		if (!global_tetromino->valid())
-		{
-		    global_running = false;
-		    printf("final points: %llu\n", global_points);
-		}
 	    }
 	}
 	glClearColor(bg.r, bg.g, bg.b, 0.0f);
@@ -99,7 +94,7 @@ int main()
 	    if (global_grid[i] == NA)
 	 	continue;
 	    
-	    glm::mat4 model(1.0);
+	    glm::mat4 model;
 	    int row = (i - 10) / 10;
 	    int col = (i - 10) % 10;
 	    glm::vec2 position = glm::vec2(grid_left+col*block_width,
@@ -109,14 +104,41 @@ int main()
 	    
 	    glUniformMatrix4fv(uni_mod_loc, 1, GL_FALSE, glm::value_ptr(model));
 	    
-	    color col_val = type_to_color(global_grid[i]);
-	    glUniform3f(uni_col_loc, col_val.r, col_val.g, col_val.b);
+	    color block_col_val = type_to_color(global_grid[i]);
+	    glUniform3f(uni_col_loc,
+			block_col_val.r, block_col_val.g, block_col_val.b);
 	    
+	    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+	}
+	for (int r = 0; r < 21; r++)
+	{
+	    glm::mat4 model;
+	    glm::vec2 position = glm::vec2(grid_left, r*block_height);
+	    model = glm::translate(glm::mat4(1.0f), glm::vec3(position, 0.0f));
+	    model = glm::scale(model, glm::vec3(grid_width+border_size,
+						border_size, 1.0f));
+	    glUniformMatrix4fv(uni_mod_loc, 1, GL_FALSE, glm::value_ptr(model));
+	    color bord_col = get_other_color(GRAY);
+	    glUniform3f(uni_col_loc,
+			bord_col.r, bord_col.g, bord_col.b);
+	    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+	}
+	for (int c = 0; c < 11; c++)
+	{
+	    glm::mat4 model;
+	    glm::vec2 position = glm::vec2(grid_left + c*block_width, 0);
+	    model = glm::translate(glm::mat4(1.0f), glm::vec3(position, 0.0f));
+	    model = glm::scale(model, glm::vec3(border_size,
+						grid_height+border_size, 1.0f));
+	    glUniformMatrix4fv(uni_mod_loc, 1, GL_FALSE, glm::value_ptr(model));
+	    color bord_col = get_other_color(GRAY);
+	    glUniform3f(uni_col_loc,
+			bord_col.r, bord_col.g, bord_col.b);
 	    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 	}
 	glfwSwapBuffers(global_window);
         double delta_time = glfwGetTime() - start_time;
-	Sleep(int(1000.0f/16.0f - (delta_time * 1000)));
+	Sleep(int(1000.0f/15.0f - (delta_time * 1000)));
     }
     glDeleteProgram(shader_program);
     glDeleteShader(vertex_shader);
