@@ -25,12 +25,6 @@ struct tetromino {
     void slam_down();
 };
 
-struct move_result {
-    bool success;
-    int new_x;
-    int new_y;
-};
-
 const int I_0[16] = {
     0, 0, 0, 0,
     1, 1, 1, 1,

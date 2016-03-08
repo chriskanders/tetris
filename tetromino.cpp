@@ -17,13 +17,14 @@ init(block_type blo_type)
     {
 	case I:
 	{
-	    local_grid = (I_0);
+	    local_grid = I_0;
 	    grid_size = 4;
 	    orientations = 2;
+	    grid_y = 1;
 	} break;
 	case O:
 	{
-	    local_grid = (O_0);
+	    local_grid = O_0;
 	    grid_size = 2;
 	    orientations = 1;
 	    cen_x = 0;
@@ -31,32 +32,33 @@ init(block_type blo_type)
 	} break;
 	case T:
 	{
-	    local_grid = (T_0);
+	    local_grid = T_0;
 	    orientations = 4;
 	} break;
 	case Z:
 	{
-	    local_grid = (Z_0);
+	    local_grid = Z_0;
 	    orientations = 2;
 	} break;
 	case S:
 	{
-	    local_grid = (S_0);
+	    local_grid = S_0;
 	    orientations = 2;
 	} break;
 	case J:
 	{
-	    local_grid = (J_0);
+	    local_grid = J_0;
 	    orientations = 4;
 	} break;
 	case L:
 	{
-	    local_grid = (L_0);
+	    local_grid = L_0;
 	    orientations = 4;
 	} break;
     }
 }
 
+// if drawn, erase tetromino from grid
 void tetromino::
 erase()
 {
@@ -68,12 +70,13 @@ erase()
     {
 	if (local_grid[i] != 0)
 	{
-	    global_grid[(top+i/grid_size)*10 + (left+i%grid_size)] = NA;
+	    grid[(top+i/grid_size)*10 + (left+i%grid_size)] = NA;
 	}
     }
     drawn = false;
 }
 
+// if not drawn, draw tetromino onto grid
 void tetromino::
 draw()
 {
@@ -85,17 +88,19 @@ draw()
     {
 	if (local_grid[i] != 0)
 	{
-	    global_grid[(top+i/grid_size)*10 + (left+i%grid_size)] =
+	    grid[(top+i/grid_size)*10 + (left+i%grid_size)] =
 		(block_type)local_grid[i];
 	}
     }
     drawn = true;
 }
 
+// check if tetromino is valid on grid
 bool tetromino::
 valid()
 {
-    ASSERT(!drawn);
+    if (drawn)
+	return true;
     int top = grid_y-cen_y;
     int left = grid_x-cen_x;
     for (int i = 0; i < grid_size*grid_size; i++)
@@ -108,7 +113,7 @@ valid()
 	    {
 		return false;
 	    }
-	    if (global_grid[y * 10 + x] != 0)
+	    if (grid[y * 10 + x] != 0)
 	    {
 		return false;
 	    }
@@ -117,6 +122,7 @@ valid()
     return true;
 }
 
+// rotate tetromino clock-wise
 void tetromino::
 rotate()
 {
@@ -134,6 +140,7 @@ rotate()
 	} break;
 	case O:
 	{
+	    return;
 	} break;
 	case T:
 	{
@@ -141,7 +148,6 @@ rotate()
 	    if (new_dir == 1) {local_grid = T_1;}
 	    if (new_dir == 2) {local_grid = T_2;}
 	    if (new_dir == 3) {local_grid = T_3;}
-	    
 	} break;
 	case Z:
 	{
@@ -172,22 +178,18 @@ rotate()
     {
 	int old_grid_x = grid_x;
 	int old_grid_y = grid_y;
-	// for (int i = 0; i < 9; i++)
-	// {
-	//     grid_x += (i % 3) - 1;
-	//     grid_y += (i / 3) - 1;
-	//     if (valid())
-	//     {
-	// 	direction = new_dir;
-	// 	draw();
-	// 	return;
-	//     }
-	//     grid_x = old_grid_x;
-	//     grid_y = old_grid_y;
-	// }
-	for (int i = 0; i < grid_size; i++)
 	{
-	    grid_x += i - (grid_size == 3 ? 1 : 2);
+	    grid_x -= 1;
+	    if (valid())
+	    {
+		direction = new_dir;
+		draw();
+		return;
+	    }
+	    grid_x = old_grid_x;
+	}
+	{
+	    grid_x += 1;
 	    if (valid())
 	    {
 		direction = new_dir;
@@ -201,10 +203,12 @@ rotate()
 	draw();
 	return;
     }
+    if (bottom) {bottom = false;}
     direction = new_dir;
     draw();
 }
 
+// move tetromino one space left
 void tetromino::
 move_left()
 {
@@ -218,9 +222,11 @@ move_left()
 	draw();
 	return;
     }
+    bottom = false;
     draw();
 }
 
+// move tetromino one space right
 void tetromino::
 move_right()
 {
@@ -234,12 +240,16 @@ move_right()
 	draw();
 	return;
     }
+    bottom = false;
     draw();
 }
 
+// move tetromino one space down
 void tetromino::
 move_down()
 {
+    if (locked)
+	return;
     erase();
     grid_y++;
     if (!valid())
@@ -252,16 +262,17 @@ move_down()
     draw();
 }
 
+// move tetromino down until floor, lock in place
 void tetromino::
 slam_down()
 {
+    if (locked)
+	return;
     erase();
-    grid_y++;
-    while (valid())
+    while (!bottom)
     {
-	grid_y++;
+	move_down();
     }
-    grid_y--;
     draw();
     locked = true;
 }

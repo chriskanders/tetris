@@ -39,11 +39,11 @@ typedef double real64;
 #define GLSL(src) "#version 330 core\n" #src
 
 #define internal static
-#define loc_pers static
-#define glob_var static
+#define local_persist static
+#define global_variable static
 
-#define SCREEN_WIDTH 1280
-#define SCREEN_HEIGHT 720
+#define SCREEN_WIDTH 1280.0f
+#define SCREEN_HEIGHT 720.0f
 
 const float grid_width = float(round(SCREEN_HEIGHT/1.9f));
 const float grid_height = float(round(SCREEN_HEIGHT));
@@ -53,7 +53,7 @@ const float block_height = float(round(grid_height/19));
 const float grid_left = float((SCREEN_WIDTH/2)-(grid_width/2));
 const float grid_right = float((SCREEN_WIDTH/2)+(grid_width/2));
 
-const float border_size = 4.0f;
+const float border_size = 6.0f;
 
 const glm::mat4 projection = glm::ortho(0.0f, 1280.0f,
 				        720.0f, 0.0f);
@@ -73,11 +73,12 @@ struct color {
 
 struct key_state {
     int up;
+    bool up_pressed;
     int down;
+    bool down_pressed;
     int left;
     int right;
     int space;
-    ullong repeat;
 };
 
 const GLchar *vert = GLSL(
