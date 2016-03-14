@@ -1,473 +1,383 @@
-#include "tetris.hpp"
-#include "tetromino.hpp"
+#include "tetris.h"
+#include "colors.h"
+#include "tetromino.h"
 
-// global variables
-global_variable bool running;
-global_variable GLFWwindow *window;
-global_variable tetromino *current_tetromino;
-global_variable tetromino *next_tetro;
-global_variable tetromino *ghost_tetro;
-global_variable block_type grid[200];
-global_variable key_state key_state;
-global_variable double step_time;
-global_variable ullong points;
+/* global variables */
+global_variable bool global_running; /* game loop condition */
+global_variable GLFWwindow *global_window; /* GLFW window context */
+global_variable tetromino *global_this_tetro; /* tetromino on board */
+global_variable tetromino *global_next_tetro; /* tetromino to be played */
+global_variable tetromino *global_ghost_tetro; /* where tetromino would be placed */
+global_variable block_type global_grid[200]; /* tetris grid (20 * 10) */
+global_variable key_state global_key_state; /* key state for keyboard input  */
+global_variable double global_step_time; /* period between normal grid updates (sec) */
+global_variable ullong global_points; /* rows cleared throughout game */
+global_variable opengl_objects global_objects; /* buffer objects, vertex arrays*/
+global_variable opengl_shaders global_shaders; /* shaders/program */
+global_variable opengl_var_locs global_var_locs; /* shader variables */
 
 #include "tetromino.cpp"
 
 int main()
 {
-    // initialize glfw, global variables, buffer objects, shaders
+	/* initialize glfw, glew, opengl, game */
+    init_contexts();
+	init_opengl_objects();
+	init_opengl_shaders();
+	init_opengl_var_locs();
     init_game_globals();
-    init_glfw_opengl();
-	
-    float verts[] = {
-	0.0f, 0.0f, // top left
-	1.0f, 0.0f, // top right
-	1.0f, 1.0f, // bottom right
-	0.0f, 1.0f  // bottom left
-    };
-    GLuint elements[] = {
-    	0, 1, 2,
-    	2, 3, 0
-    };
 
-    GLuint vertex_array_object;
-    glGenVertexArrays(1, &vertex_array_object);
-    glBindVertexArray(vertex_array_object);
-    GLuint vertex_buffer_object;
-    glGenBuffers(1, &vertex_buffer_object);
-    glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_object);
-    glBufferData(GL_ARRAY_BUFFER,
-		 sizeof(verts), verts, GL_STATIC_DRAW);
+    const color bg = get_other_color(BACKGROUND); /* background color */
 
-    GLuint element_buffer_object;
-    glGenBuffers(1, &element_buffer_object);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, element_buffer_object);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(elements), elements, GL_STATIC_DRAW);
-     
-    GLuint vertex_shader = glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(vertex_shader, 1, &vert, NULL);
-    glCompileShader(vertex_shader);
-    GLuint fragment_shader = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(fragment_shader, 1, &frag, NULL);
-    glCompileShader(fragment_shader);
-    GLuint shader_program = glCreateProgram();
-    glAttachShader(shader_program, vertex_shader);
-    glAttachShader(shader_program, fragment_shader);
-    glBindFragDataLocation(shader_program, 0, "out_color");
-    glLinkProgram(shader_program);
-    glUseProgram(shader_program);
-
-    GLint pos_attrib = glGetAttribLocation(shader_program, "position");
-    glEnableVertexAttribArray(pos_attrib);
-    glVertexAttribPointer(pos_attrib, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(GLfloat), 0);
-    GLint uni_proj_loc = glGetUniformLocation(shader_program, "projection");
-    glUniformMatrix4fv(uni_proj_loc, 1, GL_FALSE, glm::value_ptr(projection));
-    GLint uni_mod_loc = glGetUniformLocation(shader_program, "model");
-    GLint uni_col_loc = glGetUniformLocation(shader_program, "in_color");
-
-    reset_grid();
-
-    current_tetromino->draw();
-    
-    const color bg = get_other_color(BACKGROUND);
-
-    while (running)
+	/* main loop */
+    while (global_running)
     {
-	double start_time = glfwGetTime();
-	handle_events();
-	local_persist double prev_time = glfwGetTime();
-	double this_time = glfwGetTime();
-	if (this_time - prev_time >= step_time) 
-	{
-	    prev_time += step_time;
-	    current_tetromino->move_down();
-	    if (current_tetromino->locked)
-	    {
-		clear_full_lines();
-		current_tetromino->init(block_type((rand() % 8) + 1));
-		current_tetromino->draw();
-	    }
-	}
-	glClearColor(bg.r, bg.g, bg.b, 0.0f);
-	glClear(GL_COLOR_BUFFER_BIT);
-	for (int i = 10; i < 200; i++)
-	{
-	    if (grid[i] == NA)
-	 	continue;
+		double start_time = glfwGetTime(); /* frame start time */
+		handle_events(); 
+		local_persist double prev_time = glfwGetTime(); /* time when stepped last */
+		double this_time = glfwGetTime();  /* difference from prev_time */
+		if (this_time - prev_time >= global_step_time) /* check whether to step */
+		{
+			prev_time += global_step_time; /* inc prev time by step time */
+			global_this_tetro->move_down(); /* move tetromino down */
+			if (global_this_tetro->locked) /* check if done w/ current tetro */
+			{
+				clear_full_lines(); /* clear any and all full rows */
+				global_this_tetro->clear(); /* reset current tetro */
+				global_this_tetro->init(block_type((rand() % 8) + 1)); /* new tetro */
+				global_this_tetro->draw(); /* draw tetro to grid */
+			}
+		}
+		glClearColor(bg.r, bg.g, bg.b, 0.0f); /* clear screen w/background color */
+		glClear(GL_COLOR_BUFFER_BIT); /* clear gl color buffer bit */
+		for (int i = 10; i < 200; i++) /* draw all blocks in grid */
+		{
+			if (global_grid[i] == NA) /* no block in spot i */
+				continue;
 
-	    glm::mat4 model;
-	    int row = (i - 10) / 10;
-	    int col = (i - 10) % 10;
-	    glm::vec2 position = glm::vec2(grid_left+col*block_width,
-					   row*block_height);
+			glm::mat4 model; /* model matrix */
+			int row = (i - 10) / 10; /* row of i */
+			int col = (i - 10) % 10; /* column of i */
+			glm::vec2 position = glm::vec2(grid_left+col*block_width,
+						   row*block_height); /* calculate block position */
 
-	    model = glm::translate(glm::mat4(1.0f), glm::vec3(position, 0.0f));
-	    model = glm::scale(model, glm::vec3(block_width, block_height, 1.0f));
-	    
-	    glUniformMatrix4fv(uni_mod_loc, 1, GL_FALSE, glm::value_ptr(model));
+			/* move model to position */
+			model = glm::translate(glm::mat4(1.0f), glm::vec3(position, 0.0f));
+			/* scale model by block size */
+			model = glm::scale(model, glm::vec3(block_width, block_height, 1.0f));
 
-	    color block_col_val = type_to_color(grid[i]);
-	    glUniform3f(uni_col_loc,
-			block_col_val.r, block_col_val.g, block_col_val.b);
+			/* send model matrix to shader */
+			glUniformMatrix4fv(global_var_locs.model,
+				1, GL_FALSE, glm::value_ptr(model));
 
-	    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-	}
-	for (int r = 0; r < 20; r++) //drawing row border lines
-	{
-	    glm::mat4 model;
+			/* find color of block */
+			color block_col_val = type_to_color(global_grid[i]);
+			/* send block color to shader */
+			glUniform3f(global_var_locs.color,
+				block_col_val.r, block_col_val.g, block_col_val.b);
 
-	    glm::vec2 position = glm::vec2(grid_left, r*block_height);
-	    model = glm::translate(glm::mat4(1.0f), glm::vec3(position, 0.0f));
-	    model = glm::scale(model, glm::vec3(grid_width+border_size,
-						border_size, 1.0f));
-	    glUniformMatrix4fv(uni_mod_loc, 1, GL_FALSE, glm::value_ptr(model));
+			/* draw block to screen */
+			glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+		}
+		for (int r = 0; r < 20; r++) //drawing row border lines
+		{
+			glm::mat4 model; /* model matrix */
 
-	    color bord_col = get_other_color(GRAY);
-	    glUniform3f(uni_col_loc,
-			bord_col.r, bord_col.g, bord_col.b);
+			/* calculate position of row border */
+			glm::vec2 position = glm::vec2(grid_left, r*block_height);
+			/* move model to position */
+			model = glm::translate(glm::mat4(1.0f), glm::vec3(position, 0.0f));
+			/* scale model by border size, */
+			model = glm::scale(model, glm::vec3(grid_width+border_size,
+							border_size, 1.0f));
+			/* send model data to shader */
+			glUniformMatrix4fv(global_var_locs.model,
+				1, GL_FALSE, glm::value_ptr(model));
 
-	    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-	}
-	for (int c = 0; c < 11; c++) // drawing column border lines
-	{
-	    glm::mat4 model;
-	    glm::vec2 position = glm::vec2(grid_left + c*block_width, 0);
+			/* get color of border */
+			color border_col = get_other_color(GRAY);
+			/* send color data to shader */
+			glUniform3f(global_var_locs.color,
+				border_col.r, border_col.g, border_col.b);
 
-	    model = glm::translate(glm::mat4(1.0f), glm::vec3(position, 0.0f));
-	    model = glm::scale(model, glm::vec3(border_size,
-						grid_height+border_size, 1.0f));
+			/* draw horizontal border to screen */
+			glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+		}
+		for (int c = 0; c < 11; c++) // drawing column border lines
+		{
+			/* same as row border lines, just vertical */
+			glm::mat4 model;
+			glm::vec2 position = glm::vec2(grid_left + c*block_width, 0);
 
-	    glUniformMatrix4fv(uni_mod_loc, 1, GL_FALSE, glm::value_ptr(model));
+			model = glm::translate(glm::mat4(1.0f), glm::vec3(position, 0.0f));
+			model = glm::scale(model, glm::vec3(border_size,
+							grid_height+border_size, 1.0f));
 
-	    color bor_col = get_other_color(GRAY);
-	    glUniform3f(uni_col_loc,
-			bor_col.r, bor_col.g, bor_col.b);
+			glUniformMatrix4fv(global_var_locs.model,
+				1, GL_FALSE, glm::value_ptr(model));
 
-	    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-	}
-	glfwSwapBuffers(window);
-        double delta_time = glfwGetTime() - start_time;
-	Sleep(int(1000.0f/15.0f - (delta_time * 1000)));
+			color bor_col = get_other_color(GRAY);
+			glUniform3f(global_var_locs.color,
+				bor_col.r, bor_col.g, bor_col.b);
+
+			glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+		}
+		/* draw buffer to window */
+		glfwSwapBuffers(global_window);
+		/* get time between start and end frame */
+       	double delta_time = glfwGetTime() - start_time;
+		/* sleep for remaining frame time length */
+		Sleep(int(1000.0f/24.0f - (delta_time * 1000)));
     }
-    // glDeleteProgram(shader_program);
-    // glDeleteShader(vertex_shader);
-    // glDeleteShader(fragment_shader);
-    // glDeleteVertexArrays(1, &vertex_array_object);
-    // glDeleteBuffers(1, &vertex_buffer_object);
-    // glfwTerminate();
+	terminate_program();
     return 0;
 }
 
+/* end program */
+internal void 
+terminate_program() 
+{
+	/* clean up program (shaders, objects, glfw) */
+	free(global_this_tetro); global_this_tetro = NULL;
+    glDeleteProgram(global_shaders.program);
+    glDeleteShader(global_shaders.vertex);
+    glDeleteShader(global_shaders.fragment);
+    glDeleteVertexArrays(1, &global_objects.vao);
+    glDeleteBuffers(1, &global_objects.vbo);
+    glfwTerminate();
+	printf("final points: %llu\n", global_points);
+}
+
+/* clear individual row of grid */
 internal void
 clear_line(int row)
 {
+	// clear row to NA`
     for (int c = 0; c < 10; c++)
     {
-	grid[row * 10 + c] = NA;
-    }
-    for (int r = row - 1; r >= 0; r--)
-    {
-	for (int c = 0; c < 10; c++)
-	{
-	    grid[(r+1) * 10 + c] = (block_type)grid[r * 10 + c];
+		global_grid[row * 10 + c] = NA;
 	}
+	// move previous rows down
+	for (int r = row - 1; r >= 0; r--)
+	{
+		for (int c = 0; c < 10; c++)
+		{
+			global_grid[(r+1) * 10 + c] = (block_type)global_grid[r * 10 + c];
+		}
     }
 }
 
+/* clear all full lines in grid */
 internal void
 clear_full_lines()
 {
-    for (int r= 19; r>= 0; r--)
+	/* check for full lines */
+    for (int r = 19; r > 0; r--)
     {
-	bool full = true;
-	for (int c= 0; c < 10; c++)
-	{
-	    if (grid[r * 10 + c] == NA)
-		full = false;
-	}
-	if (full)
-	{
-	    for (int c = 0; c < 10; c++)
-	    {
-		grid[r * 10 + c] = NA;
-	    }
-	    for (int row = r - 1; row >= 0; row--)
-	    {
+		bool full = true;
+		/* check for empty block in row */
 		for (int c = 0; c < 10; c++)
 		{
-		    grid[(row+1) * 10 + c] = (block_type)grid[row * 10 + c];
+			if (global_grid[r * 10 + c] == NA)
+			full = false;
 		}
-	    }
-	    r++;
-	    points++;
-	}
+		/* clear line if full */
+		if (full)
+		{
+			clear_line(r);
+			r++;
+			global_points++;
+		}
     }
 }
 
+/* clear entire grid's values to 0 */
 internal void
-reset_grid()
+clear_grid()
 {
+	/* clear entire grid to NA */
     for (int i = 10; i < 200; i++)
     {
-	grid[i] = NA;
+		global_grid[i] = NA;
     }
 }
 
-internal color
-type_to_color(block_type t)
-{
-   switch (t)
-    {
-	case NA:
-	{
-	    return get_other_color(BACKGROUND);
-	} break;
-	case I:
-	{
-	    return get_block_color(BLUE_GREEN);
-	} break;
-	case O:
-	{
-	    return get_block_color(GOLD);
-	} break;
-	case T:
-	{
-	    return get_block_color(PURPLE);
-	} break;
-	case Z:
-	{
-	    return get_block_color(RED);
-	} break;
-	case S:
-	{
-	    return get_block_color(LIGHT_GREEN);
-	} break;
-	case J:
-	{
-	    return get_block_color(BLUE);
-	} break;
-	case L:
-	{
-	    return get_block_color(RED_ORANGE);
-	} break;
-	default:
-	{
-	    return get_block_color(block_color(-1));
-	} break;
-	
-    }
-}
-
-internal color
-get_block_color(block_color c)
-{
-    color color_v;
-    switch (c)
-    {
-	case BLUE_GREEN:
-	{
-	    color_v.r = float(91)/255;
-	    color_v.g = float(203)/255;
-	    color_v.b = float(196)/255; 
-	} break;
-	case GOLD:
-	{
-	    color_v.r = float(255)/255;
-	    color_v.g = float(196)/255;
-	    color_v.b = float(0)/255; 
-	} break;
-	case PURPLE:
-	{
-	    color_v.r = float(199)/255;
-	    color_v.g = float(146)/255;
-	    color_v.b = float(234)/255; 
-	} break;
-	case RED:
-	{
-	    color_v.r = float(255)/255;
-	    color_v.g = float(81)/255;
-	    color_v.b = float(109)/255; 
-	} break;
-	case LIGHT_GREEN:
-	{
-	    color_v.r = float(194)/255;
-	    color_v.g = float(233)/255;
-	    color_v.b = float(130)/255; 
-	} break;
-	case BLUE:
-	{
-	    color_v.r = float(116)/255;
-	    color_v.g = float(177)/255;
-	    color_v.b = float(255)/255; 
-	} break;
-	case RED_ORANGE:
-	{
-	    color_v.r = float(247)/255;
-	    color_v.g = float(118)/255;
-	    color_v.b = float(105)/255; 
-	} break;
-	default:
-	{
-	    color_v.r = -1.0f;
-	    color_v.g = -1.0f;
-	    color_v.b = -1.0f;
-	} break;
-    }
-    return color_v;
-}
-
-internal color 
-get_other_color(other_color c)
-{
-    color color_v;
-    switch (c)
-    {
-	case BLACK:
-	{
-	    color_v.r = float(0)/255;
-	    color_v.g = float(0)/255;
-	    color_v.b = float(0)/255; 
-	} break;
-	case BACKGROUND:
-	{
-	    color_v.r = float(38)/255;
-	    color_v.g = float(50)/255;
-	    color_v.b = float(56)/255; 
-	} break;
-	case GRAY:
-	{
-	    color_v.r = float(84)/255;
-	    color_v.g = float(109)/255;
-	    color_v.b = float(122)/255; 
-	} break;
-	case FOREGROUND:
-	{
-	    color_v.r = float(205)/255;
-	    color_v.g = float(211)/255;
-	    color_v.b = float(188)/255; 
-	} break;
-	case WHITE:
-	{
-	    color_v.r = float(255)/255;
-	    color_v.g = float(255)/255;
-	    color_v.b = float(255)/255; 
-	} break;
-	default:
-	{
-	    color_v.r = -1.0f;
-	    color_v.g = -1.0f;
-	    color_v.b = -1.0f;
-	} break;
-    }
-    return color_v;
-}
-
+/* initialize game global values */
 internal void
 init_game_globals()
 {
-    running = true;
-    srand((uint)time(NULL));
-    step_time = 1.0f;
-    points = 0;
-    current_tetromino = (tetromino*)malloc(sizeof(current_tetromino));
-    current_tetromino->init(block_type((rand() % 7) + 1));
+    srand((uint)time(NULL)); /* set psuedo-random number gen seed */
+    global_running = true;
+    global_step_time = 1.0f; /* 1 second real time */
+    global_points = 0;
+	/* allocate memory for tetro */
+    global_this_tetro = (tetromino*)malloc(sizeof(global_this_tetro));
+    global_this_tetro->init(block_type((rand() % 7) + 1));
+	clear_grid();
+   	global_this_tetro->draw();
 }
 
+/* initialize opengl buffer objects, vertex arrays */
+internal void
+init_opengl_objects()
+{
+    glGenVertexArrays(1, &global_objects.vao);
+    glBindVertexArray(global_objects.vao);
+    glGenBuffers(1, &global_objects.vbo);
+    glBindBuffer(GL_ARRAY_BUFFER, global_objects.vbo);
+	/* send vertices data to vertex array */
+    glBufferData(GL_ARRAY_BUFFER,
+		 sizeof(vertices), vertices, GL_STATIC_DRAW);
+    glGenBuffers(1, &global_objects.ebo);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, global_objects.ebo);
+	/* send element order data to element array */
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(elements), elements, GL_STATIC_DRAW);
+}
+
+/* initialize opengl GLSL shaders */
+internal void
+init_opengl_shaders()
+{
+	/* create vertex shader */
+    global_shaders.vertex = glCreateShader(GL_VERTEX_SHADER);
+    glShaderSource(global_shaders.vertex, 1, &vert_source, NULL);
+    glCompileShader(global_shaders.vertex);
+	/* create fragment shader */
+    global_shaders.fragment = glCreateShader(GL_FRAGMENT_SHADER);
+    glShaderSource(global_shaders.fragment, 1, &frag_source, NULL);
+    glCompileShader(global_shaders.fragment);
+    global_shaders.program = glCreateProgram();
+	/* attach shaders to program */
+    glAttachShader(global_shaders.program, global_shaders.vertex);
+    glAttachShader(global_shaders.program, global_shaders.fragment);
+    //glBindFragDataLocation(global_shaders.program, 0, "out_color");
+    glLinkProgram(global_shaders.program);
+    glUseProgram(global_shaders.program);
+}
+
+/* initialize opengl shader variable locations */
+internal void
+init_opengl_var_locs()
+{
+	/* get shader location of "position" */
+    global_var_locs.position = glGetAttribLocation(global_shaders.program, "position");
+    glEnableVertexAttribArray(global_var_locs.position);
+	/* point position data to vertices data */
+    glVertexAttribPointer(global_var_locs.position,
+		2, GL_FLOAT, GL_FALSE, 2 * sizeof(GLfloat), 0);
+	/* get shader location of "projection" */ 
+    global_var_locs.projection =
+		glGetUniformLocation(global_shaders.program, "projection");
+	/* send projection matrix to shader */
+    glUniformMatrix4fv(global_var_locs.projection,
+		1, GL_FALSE, glm::value_ptr(projection));
+	/* get shader location of "model" */
+    global_var_locs.model = glGetUniformLocation(global_shaders.program, "model");
+	/* get shader location of "in_color" */
+    global_var_locs.color = glGetUniformLocation(global_shaders.program, "in_color");
+}
+
+/* handle global key state */
 internal void
 handle_events()
 {
     // TODO(chris): make sure to include GLFW_PRESS in repeat incrementation
-    glfwPollEvents();
-    if (glfwWindowShouldClose(window))
+    glfwPollEvents(); /* get any new keyboard events */
+    if (glfwWindowShouldClose(global_window))
     {
-	running = false;
-    }   
-    if (key_state.up)
+		global_running = false;
+    }
+    if (global_key_state.up)
     {
-	if (!key_state.up_pressed)
-	{
-	    current_tetromino->rotate();
-	    key_state.up_pressed = true;
+		/* execute action if pressed but not held */
+		if (!global_key_state.up_pressed)
+		{
+	    	global_this_tetro->rotate();
+	    	global_key_state.up_pressed = true;
         }
     }
-    if (key_state.down)
+    if (global_key_state.down)
     {
-        step_time = 0.12f;
+        global_step_time = 0.12f; /* faster step time */
     }
     else
     {
-        step_time = 1.0f;
+        global_step_time = 1.0f;
     }
-    if (key_state.left)
+    if (global_key_state.left)
     {
-	    current_tetromino->move_left();
+	    global_this_tetro->move_left();
     }
-    if (key_state.right)
+    if (global_key_state.right)
     {
-	    current_tetromino->move_right();
+	    global_this_tetro->move_right();
     }
-    if (key_state.space)
+    if (global_key_state.space)
     {
-	if (!key_state.down_pressed)
-	{
-	    current_tetromino->slam_down();
-	    key_state.down_pressed = true;
-	}
+		/* execute action if pressed but not held */
+		if (!global_key_state.down_pressed)
+		{
+	    	global_this_tetro->slam_down();
+	    	global_key_state.down_pressed = true;
+		}
     }
 }
 
+/* initialize glfw, glew, opengl contexts */
 internal void
-init_glfw_opengl()
+init_contexts()
 {
-    // initialize glfw
+    /* initialize glfw */
     glfwInit();
-    // give glfw window hints about OpenGL
+    /* give glfw window hints about OpenGL */
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
     glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
-    // initialize window, make current context
-    window = glfwCreateWindow(1280, 720, "tetris", nullptr, nullptr);
-    glfwMakeContextCurrent(window);
-    // initialize glew
+    /* initialize window, make current context */
+    global_window = glfwCreateWindow(1280, 720, "tetris", nullptr, nullptr);
+    glfwMakeContextCurrent(global_window);
+    /* initialize glew */
     glewExperimental = GL_TRUE;
     glewInit();
-    // set glfw callback functions
-    glfwSetKeyCallback(window, key_callback);
+    /* set glfw callback functions */
+    glfwSetKeyCallback(global_window, key_callback);
 }
 
+/* key callback function */
 internal void
 key_callback(GLFWwindow *window, int key, int scancode, int action, int mods)
 {
+	/* modify global_key_state */
+
     switch (key)
     {
-	case GLFW_KEY_ESCAPE:
-	{
-	    running = false;
-	} break;
-	case GLFW_KEY_SPACE:
-	{
-	    key_state.space = action;
-	} break;
-	case GLFW_KEY_RIGHT:
-	{
-	    key_state.right = action;
-	} break;
-	case GLFW_KEY_LEFT:
-	{
-	    key_state.left = action;
-	} break;
-	case GLFW_KEY_DOWN:
-	{
-	    if (action == GLFW_RELEASE) {key_state.down_pressed = false;}
-	    key_state.down = action;
-	} break;
-	case GLFW_KEY_UP:
-	{
-	    if (action == GLFW_RELEASE) {key_state.up_pressed = false;}
-	    key_state.up = action;
-	} break;
+		case GLFW_KEY_ESCAPE:
+		{
+			global_running = false;
+		} break;
+		case GLFW_KEY_SPACE:
+		{
+			global_key_state.space = action;
+		} break;
+		case GLFW_KEY_RIGHT:
+		{
+			global_key_state.right = action;
+		} break;
+		case GLFW_KEY_LEFT:
+		{
+			global_key_state.left = action;
+		} break;
+		case GLFW_KEY_DOWN:
+		{
+			if (action == GLFW_RELEASE) {global_key_state.down_pressed = false;}
+			global_key_state.down = action;
+		} break;
+		case GLFW_KEY_UP:
+		{
+			if (action == GLFW_RELEASE) {global_key_state.up_pressed = false;}
+			global_key_state.up = action;
+		} break;
     }
 }
